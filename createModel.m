@@ -24,10 +24,22 @@ else
 	prior0 = normalise(rand(numberStates,1));
 end
 
-[mu0, Sigma0] = mixgauss_init(numberStates*numberGaussPerState, cell2mat(trainingData), 'diag');
-mu0 = reshape(mu0, [numberCep numberStates numberGaussPerState]);
-Sigma0 = reshape(Sigma0, [numberCep numberCep numberStates numberGaussPerState]);
-mixmat0 = mk_stochastic(rand(numberStates,numberGaussPerState));
+if final_initial_shared
+	[mu0, Sigma0] = mixgauss_init((numberStates-1)*numberGaussPerState, cell2mat(trainingData), 'diag');
+	mu0 = reshape(mu0, [numberCep (numberStates-1) numberGaussPerState]);
+	Sigma0 = reshape(Sigma0, [numberCep numberCep (numberStates-1) numberGaussPerState]);
+	
+	mu0(:,numberStates,:) = mu0(:,1,:);
+	Sigma0(:,:,numberStates,:) = Sigma0(:,:,1,:);
+	
+	mixmat0 = mk_stochastic(rand(numberStates,numberGaussPerState));
+	mixmat0(numberStates,:) = mixmat0(1,:);
+else
+	[mu0, Sigma0] = mixgauss_init(numberStates*numberGaussPerState, cell2mat(trainingData), 'diag');
+	mu0 = reshape(mu0, [numberCep numberStates numberGaussPerState]);
+	Sigma0 = reshape(Sigma0, [numberCep numberCep numberStates numberGaussPerState]);
+	mixmat0 = mk_stochastic(rand(numberStates,numberGaussPerState));
+end
 
 if final_ensured
 	posterior0 = normalise(initMat(numberStates, 1,@(i,j) i==numberStates));

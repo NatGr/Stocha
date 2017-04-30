@@ -1,21 +1,17 @@
 % results = [digit nbreTimesFound nbreTimesCorrectFound nbreTestedSample]
 function [results, score] = computeScore(directory, models)
 
-files = arrayfun(@(e) fullfile(directory, e.name), dir([directory '*-*.wav']), 'UniformOutput', false);
+files = arrayfun(@(e) fullfile(directory, e.name), dir([directory '*.wav']), 'UniformOutput', false);
 
 results = zeros(10,4);
 results(:,1) = 0:9;
 
 for i = 1:numel(files)
-	[sound, fs] = audioread(files{i});
-	if fs ~= 44100
-		disp(['bad frequency' int2str(fs)])
-	end
-	foundDigit = findBestModel(sound, models) + 1;
+	foundDigit = findBestModel(audioread(files{i}), models) + 1;
 	
 	[~,name] = fileparts(files{i});
 
-	realDigit = str2num([name(1)]) + 1;
+	realDigit = str2double(name(1)) + 1;
 	
 	results(foundDigit, 2) = results(foundDigit, 2) + 1;
 	results(realDigit, 3) = results(realDigit, 3) + (realDigit == foundDigit);

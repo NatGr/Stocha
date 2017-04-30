@@ -12,11 +12,9 @@ function [fatModel] = createFatModel(models)
 %
 % all models must have the same numberCep
 
-% if we cahnge to force same emission in intial state and in final state, change %init_final%
-
 numberStates = 1 + sum(arrayfun(@(m) size(m.pi, 1) - 2, models)); 	% initial state = final state, which is shared
 numberCep = size(models(1).mu, 1);
-numberGaussPerState = 3 * sum(arrayfun(@(m) size(m.mu, 3), models)); 	% initial state can produce any of the gaussian of the initial or final states of each little models // may be it could be better // remove final if training is done considering same emission from initial and final state %init_final%
+numberGaussPerState = 2 * sum(arrayfun(@(m) size(m.mu, 3), models)); 	% initial state can produce any of the gaussian of the initial or final states of each little models // may be it could be better
 
 fatModel.pi = zeros(numberStates,1);
 fatModel.pi(1) = 1; 	% start at initial state
@@ -30,7 +28,7 @@ fatModel.stateOfLittle = zeros(length(models),1);
 
 % variables to localise in the matrices
 s = 2; 						% state in the fat model of the first state of the current little model
-g = 1 + 2 * numberGaussPerState / 3; % index of the gaussian // skip the ones for initial state %init_final%
+g = 1 + numberGaussPerState / 2; % index of the gaussian
 
 for m = 1:length(models) 	% index of current model
 	model = models(m);
@@ -45,14 +43,13 @@ for m = 1:length(models) 	% index of current model
 	nextG = g + currentNumberGaussPerState;
 	
 	fatStateRange = s:(nextS - 1);
-	fatGaussRange_0 = g:(nextG - 1);	%init_final%
-	fatGaussRange_1 = (g:(nextG - 1)) + numberGaussPerState / 3;	%init_final%
-	fatGaussRange_2 = (g:(nextG - 1)) + 2 * numberGaussPerState / 3;	%init_final%
+	fatGaussRange_0 = g:(nextG - 1);
+	fatGaussRange_1 = (g:(nextG - 1)) + numberGaussPerState / 2;
 	
 	fatModel.A(fatStateRange,fatStateRange) 			= model.A(stateRange,stateRange);
-	fatModel.mu(:,fatStateRange,fatGaussRange_2) 		= model.mu(:,stateRange,:);
-	fatModel.sigma(:,:,fatStateRange,fatGaussRange_2) 	= model.sigma(:,:,stateRange,:);
-	fatModel.B(fatStateRange,fatGaussRange_2) 			= model.B(stateRange,:);
+	fatModel.mu(:,fatStateRange,fatGaussRange_1) 		= model.mu(:,stateRange,:);
+	fatModel.sigma(:,:,fatStateRange,fatGaussRange_1) 	= model.sigma(:,:,stateRange,:);
+	fatModel.B(fatStateRange,fatGaussRange_1) 			= model.B(stateRange,:);
 	
 	fatModel.index(fatStateRange) 					= m;
 	fatModel.stateOfLittle(m) 						= s;
@@ -63,13 +60,10 @@ for m = 1:length(models) 	% index of current model
 	fatModel.A(fatStateRange,1) 	= model.A(stateRange,end);
 	
 	fatModel.B(1,fatGaussRange_0) 	= model.B(1,:);
-	fatModel.B(1,fatGaussRange_1) 	= model.B(end,:);	%init_final%
 	
 	fatModel.mu(:,1,fatGaussRange_0) 	= model.mu(:,1,:);
-	fatModel.mu(:,1,fatGaussRange_1) 	= model.mu(:,end,:);	%init_final%
 
 	fatModel.sigma(:,:,1,fatGaussRange_0) 	= model.sigma(:,:,1,:);
-	fatModel.sigma(:,:,1,fatGaussRange_1) 	= model.sigma(:,:,end,:);	%init_final%
 	
 	% update s and g
 	s = nextS;

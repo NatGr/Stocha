@@ -1,5 +1,5 @@
 % results = [digit nbreTimesFound nbreTimesCorrectFound nbreTestedSample]
-function results = computeScore(directory, models)
+function [results, score] = computeScore(directory, models)
 
 files = arrayfun(@(e) fullfile(directory, e.name), dir([directory '*-*.wav']), 'UniformOutput', false);
 

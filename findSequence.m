@@ -1,7 +1,7 @@
 % function finding the most likely sequence
 function sequence = findSequence(sound, fatModel)
 
-data = getCoef(sound, size(fatModel.mu, 1));
+coef = getCoef(sound, size(fatModel.mu, 1));
 path = mhmm_viterbi(coef, fatModel);
 
 digit_long = fatModel.index(path) - 1;

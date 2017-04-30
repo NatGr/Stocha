@@ -7,10 +7,5 @@ sound = sound(:,1); % in case of stereo sound
 sound = filter(B, A, sound(sound ~= 0));
 obs = melfcc(sound,fs,'numcep', numberCep);
 
-% TODO: remove
-if numel(find(isnan(obs))) ~= 0
-    disp 'mert'
-end
-% END TODO
 obs = standardize(obs);
 end

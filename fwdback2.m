@@ -134,7 +134,7 @@ if scaled
  if any(scale==0)
    loglik = -inf;
  else
-   loglik = sum(log(scale));
+   loglik = sum(log(scale)) + log(sum(alpha(:,T) .* exit_state_distrib(:)));
  end
 else
  loglik = log(sum(alpha(:,T)));

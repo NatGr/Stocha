@@ -6,47 +6,24 @@ for i = 1:numel(sounds)
     trainingData{i} = getCoef(sounds{i}, numberCep);
 end
 
-onlyNextState = false;
-startByFirst = false;
-final_ensured = false;
-final_initial_shared = false;
+transmat0 = mk_stochastic(initMat(numberStates, numberStates,@(i,j) (i==j) + (i==j-1) * 0.05) .* rand(numberStates,numberStates));
 
-if onlyNextState
-	transmat0 = mk_stochastic(initMat(numberStates, numberStates,@(i,j) (i==j) + (i==j-1) * 0.05) .* rand(numberStates,numberStates));
-else
-	transmat0 = mk_stochastic(triu(rand(numberStates,numberStates)));
-end
+prior0 = zeros(numberStates,1);
+prior0(1) = 1;
 
-if startByFirst
-	prior0 = zeros(numberStates,1);
-	prior0(1) = 1;
-else
-	prior0 = normalise(rand(numberStates,1));
-end
+[mu0, Sigma0] = mixgauss_init((numberStates-1)*numberGaussPerState, cell2mat(trainingData), 'diag');
+mu0 = reshape(mu0, [numberCep (numberStates-1) numberGaussPerState]);
+Sigma0 = reshape(Sigma0, [numberCep numberCep (numberStates-1) numberGaussPerState]);
 
-if final_initial_shared
-	[mu0, Sigma0] = mixgauss_init((numberStates-1)*numberGaussPerState, cell2mat(trainingData), 'diag');
-	mu0 = reshape(mu0, [numberCep (numberStates-1) numberGaussPerState]);
-	Sigma0 = reshape(Sigma0, [numberCep numberCep (numberStates-1) numberGaussPerState]);
-	
-	mu0(:,numberStates,:) = mu0(:,1,:);
-	Sigma0(:,:,numberStates,:) = Sigma0(:,:,1,:);
-	
-	mixmat0 = mk_stochastic(rand(numberStates,numberGaussPerState));
-	mixmat0(numberStates,:) = mixmat0(1,:);
-else
-	[mu0, Sigma0] = mixgauss_init(numberStates*numberGaussPerState, cell2mat(trainingData), 'diag');
-	mu0 = reshape(mu0, [numberCep numberStates numberGaussPerState]);
-	Sigma0 = reshape(Sigma0, [numberCep numberCep numberStates numberGaussPerState]);
-	mixmat0 = mk_stochastic(rand(numberStates,numberGaussPerState));
-end
+mixmat0 = mk_stochastic(rand(numberStates,numberGaussPerState));
 
-if final_ensured
-	posterior0 = normalise(initMat(numberStates, 1,@(i,j) i==numberStates));
-else
-	posterior0 = ones(numberStates, 1);
-end
+% impose that first and last state have same mixture of gaussians
+mu0(:,numberStates,:) = mu0(:,1,:);
+Sigma0(:,:,numberStates,:) = Sigma0(:,:,1,:);
+mixmat0(numberStates,:) = mixmat0(1,:);
 
-[LL, model.pi, model.A, model.mu, model.sigma, model.B] = mhmm_em2(trainingData, prior0, posterior0, transmat0, mu0, Sigma0, mixmat0, 'verbose', 0, 'max_iter', 25, 'final_initial_shared', final_initial_shared);
+posterior0 = normalise(initMat(numberStates, 1,@(i,j) i==numberStates));
+
+[LL, model.pi, model.posterior, model.A, model.mu, model.sigma, model.B] = mhmm_em2(trainingData, prior0, posterior0, transmat0, mu0, Sigma0, mixmat0, 'verbose', 0, 'max_iter', 25, 'final_initial_shared', 1, 'adj_posterior', 0);
 
 end

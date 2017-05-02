@@ -6,7 +6,7 @@ function [digit, prob] = findBestModel(sound, models)
 
 data = getCoef(sound, size(models(1).mu, 1));
 
-prob = arrayfun(@(m) mhmm_logprob(data, m.pi, m.A, m.mu, m.sigma, m.B), models)';
+prob = arrayfun(@(m) mhmm_logprob2(data, m.pi, m.posterior, m.A, m.mu, m.sigma, m.B), models)';
 
 [~, index] = max(prob);
 digit = index - 1;

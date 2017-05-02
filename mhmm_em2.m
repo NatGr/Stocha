@@ -1,4 +1,4 @@
-function [LL, prior, transmat, mu, Sigma, mixmat] = ...
+function [LL, prior, posterior, transmat, mu, Sigma, mixmat] = ...
      mhmm_em2(data, prior, posterior, transmat, mu, Sigma, mixmat, varargin);
 % LEARN_MHMM Compute the ML parameters of an HMM with (mixtures of) Gaussians output using EM.
 % [ll_trace, prior, transmat, mu, sigma, mixmat] = learn_mhmm(data, ...
@@ -9,6 +9,7 @@ function [LL, prior, transmat, mu, Sigma, mixmat] = ...
 % INPUTS:
 % data{ex}(:,t) or data(:,t,ex) if all sequences have the same length
 % prior(i) = Pr(Q(1) = i), 
+% posterior(i) = Pr(obs sequence ends at T | Q(T) = i), 
 % transmat(i,j) = Pr(Q(t+1)=j | Q(t)=i)
 % mu(:,j,k) = E[Y(t) | Q(t)=j, M(t)=k ]
 % Sigma(:,:,j,k) = Cov[Y(t) | Q(t)=j, M(t)=k]
@@ -24,6 +25,7 @@ function [LL, prior, transmat, mu, Sigma, mixmat] = ...
 %
 % To clamp some of the parameters, so learning does not change them:
 % 'adj_prior' - if 0, do not change prior [1]
+% 'adj_posterior' - if 0, do not change posterior [1]
 % 'adj_trans' - if 0, do not change transmat [1]
 % 'adj_mix' - if 0, do not change mixmat [1]
 % 'adj_mu' - if 0, do not change mu [1]
@@ -37,9 +39,9 @@ if ~isempty(varargin) & ~isstr(varargin{1}) % catch old syntax
   error('optional arguments should be passed as string/value pairs')
 end
 
-[max_iter, thresh, verbose, cov_type,  adj_prior, adj_trans, adj_mix, adj_mu, adj_Sigma, final_initial_shared] = ...
+[max_iter, thresh, verbose, cov_type,  adj_prior, adj_posterior, adj_trans, adj_mix, adj_mu, adj_Sigma, final_initial_shared] = ...
     process_options(varargin, 'max_iter', 10, 'thresh', 1e-4, 'verbose', 1, ...
-		    'cov_type', 'full', 'adj_prior', 1, 'adj_trans', 1, 'adj_mix', 1, ...
+		    'cov_type', 'full', 'adj_prior', 1, 'adj_posterior', 1, 'adj_trans', 1, 'adj_mix', 1, ...
 		    'adj_mu', 1, 'adj_Sigma', 1, 'final_initial_shared', 1);
   
 previous_loglik = -inf;
@@ -66,7 +68,7 @@ end
 
 while (num_iter <= max_iter) & ~converged
   % E step
-  [loglik, exp_num_trans, exp_num_visits1, postmix, m, ip, op] = ...
+  [loglik, exp_num_trans, exp_num_visits1, exp_num_endings, postmix, m, ip, op] = ...
       ess_mhmm(prior, posterior, transmat, mixmat, mu, Sigma, data);
   
   if final_initial_shared
@@ -84,6 +86,9 @@ while (num_iter <= max_iter) & ~converged
   % M step
   if adj_prior
     prior = normalise(exp_num_visits1);
+  end
+  if adj_posterior
+    posterior = normalise(exp_num_endings);
   end
   if adj_trans 
     transmat = mk_stochastic(exp_num_trans);
@@ -111,13 +116,14 @@ end
 
 %%%%%%%%%
 
-function [loglik, exp_num_trans, exp_num_visits1, postmix, m, ip, op] = ...
+function [loglik, exp_num_trans, exp_num_visits1, exp_num_endings, postmix, m, ip, op] = ...
     ess_mhmm(prior, posterior, transmat, mixmat, mu, Sigma, data)
 % ESS_MHMM Compute the Expected Sufficient Statistics for a MOG Hidden Markov Model.
 %
 % Outputs:
 % exp_num_trans(i,j)   = sum_l sum_{t=2}^T Pr(Q(t-1) = i, Q(t) = j| Obs(l))
 % exp_num_visits1(i)   = sum_l Pr(Q(1)=i | Obs(l))
+% exp_num_endings(i)   = sum_l Pr(Q(T)=i | Obs(l))
 %
 % Let w(i,k,t,l) = P(Q(t)=i, M(t)=k | Obs(l))
 % where Obs(l) = Obs(:,:,l) = O_1 .. O_T for sequence l
@@ -137,6 +143,7 @@ Q = length(prior);
 M = size(mixmat,2);
 exp_num_trans = zeros(Q,Q);
 exp_num_visits1 = zeros(Q,1);
+exp_num_endings = zeros(Q,1);
 postmix = zeros(Q,M);
 m = zeros(O,Q,M);
 op = zeros(O,O,Q,M);
@@ -164,6 +171,7 @@ for ex=1:numex
 
   exp_num_trans = exp_num_trans + xi_summed; % sum(xi,3);
   exp_num_visits1 = exp_num_visits1 + gamma(:,1);
+  exp_num_endings = exp_num_endings + gamma(:,T);
   
   if mix
     postmix = postmix + sum(gamma2,3);
